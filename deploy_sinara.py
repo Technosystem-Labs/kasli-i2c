@@ -9,7 +9,7 @@ import socket
 from sinara import Sinara
 from kasli import Kasli
 from chips import EEPROM, PCA9548
-from label import render_zpl
+#from label import render_zpl
 
 logger = logging.getLogger(__name__)
 
