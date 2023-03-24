@@ -3,7 +3,7 @@ import logging
 from contextlib import contextmanager
 import struct
 
-from sinara import Sinara
+from kasli_i2c.sinara import Sinara
 from pyftdi.i2c import I2cNackError
 
 logger = logging.getLogger(__name__)

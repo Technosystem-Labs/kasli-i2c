@@ -1,9 +1,9 @@
 import logging
 import sys
 
-from sinara import Sinara
-from kasli import Kasli
-from chips import EEPROM
+from kasli_i2c.sinara import Sinara
+from kasli_i2c.kasli import Kasli
+from kasli_i2c.chips import EEPROM
 
 
 logger = logging.getLogger(__name__)

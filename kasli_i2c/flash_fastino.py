@@ -3,9 +3,9 @@ import sys
 import time
 from contextlib import contextmanager
 
-from sinara import Sinara
-from kasli import Kasli
-import chips
+from kasli_i2c.sinara import Sinara
+from kasli_i2c.kasli import Kasli
+import kasli_i2c.chips
 
 logger = logging.getLogger(__name__)
 

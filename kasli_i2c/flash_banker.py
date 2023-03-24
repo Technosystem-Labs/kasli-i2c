@@ -3,16 +3,17 @@ import sys
 import time
 from contextlib import contextmanager
 
-from sinara import Sinara
-from kasli import Kasli
-import chips
+from kasli_i2c.sinara import Sinara
+from kasli_i2c.kasli import Kasli
+import kasli_i2c.chips
 
 logger = logging.getLogger(__name__)
 
 
-class Phaser:
+class Banker:
     def __init__(self, bus):
         self.bus = bus
+        self.sw = chips.PCA9548(bus, addr=0x72)
         self.eeprom = chips.EEPROM(bus)
         self.temp1 = chips.LM75(bus, 0x48)
         self.temp2 = chips.LM75(bus, 0x49)
@@ -20,12 +21,12 @@ class Phaser:
         self.flash = chips.SPIFlash(self.spi, 0b0001)
 
     def init(self):
-        self.spi.gpio_write(0b1000)  # reset
-        self.spi.gpio_enable(0b1110)  # all but select
-        self.spi.gpio_config(0b00, 0b01, 0b10, 0b01)
+        self.spi.gpio_write(0b1000)
+        self.spi.gpio_enable(0b1110)
+        self.spi.gpio_config(0b00, 0b01, 0b10, 0b00)
         assert not self.spi.gpio_read() & 0b0010  # SPI disable
         assert self.spi.gpio_read() & 0b0001  # SS deassert
-        assert self.spi.gpio_read() & 0b1000  # reset deassert
+        assert self.spi.gpio_read() & 0b1000  # CRESET deassert
         self.spi.configure(order=0, mode=0, f=0)
 
     def report(self):
@@ -37,16 +38,15 @@ class Phaser:
         self.temp1.report()
         self.temp2.report()
         logging.info("gpio: %#02x", self.spi.gpio_read())
-        #logging.info("ident: %r", self.flash.read_identification())
-        #logging.info("status: %#02x", self.flash.read_status())
+        logging.info("ident: %r", self.flash.read_identification())
+        logging.info("status: %#02x", self.flash.read_status())
 
-    def creload(self, timeout=1):
-        self.spi.gpio_write(0b1000)
-        assert self.spi.gpio_read() & 0b1000  # reset
-        assert not self.spi.gpio_read() & 0b0100  # not done
-        assert self.spi.gpio_read() & 0b0001  # not select
+    def creload(self, timeout=.3):
         self.spi.gpio_write(0b0000)
-        assert not self.spi.gpio_read() & 0b1000  # not reset
+        assert not self.spi.gpio_read() & 0b1000  # CRESET assert
+        assert not self.spi.gpio_read() & 0b0100  # not CDONE
+        self.spi.gpio_write(0b1000)
+        assert self.spi.gpio_read() & 0b1000  # CRESET deassert
         t = time.monotonic()
         while not self.spi.gpio_read() & 0b0100:  # not CDONE
             if time.monotonic() - t > timeout:
@@ -56,12 +56,14 @@ class Phaser:
     @contextmanager
     def flash_upd(self):
         # freeze it while loading
-        self.spi.gpio_write(0b1010)
+        self.spi.gpio_write(0b0000)
+        self.spi.gpio_write(0b1000)
+        self.spi.gpio_write(0b0010)
         try:
             self.flash.wakeup()
             yield
         finally:
-            self.spi.gpio_write(0b0001)
+            self.spi.gpio_write(0b1000)
             self.spi.idle()
 
     def dump(self, fil, length=0x22000, offset=0):
@@ -74,8 +76,8 @@ class Phaser:
         eui48 = self.eeprom.eui48()
         logger.info("eui48 %s", self.eeprom.fmt_eui48())
         ee_data = Sinara(
-            name="Phaser",
-            board=Sinara.boards.index("Phaser"),
+            name="Banker",
+            board=Sinara.boards.index("Banker"),
             major=1, minor=0, variant=0, port=0,
             vendor=Sinara.vendors.index("QUARTIQ"),
             vendor_data=Sinara._defaults.vendor_data)
@@ -98,18 +100,17 @@ if __name__ == "__main__":
 
     url = "ftdi://ftdi:4232h:{}/2".format(serial)
     with Kasli().configure(url) as bus, bus.enabled(sys.argv[2]):
-        b = Phaser(bus)
-        b.init()
-        b.report()
-        action = sys.argv[3]
-        if action == "eeprom":
-            b.eeprom_update()
-        if False:
+        b = Banker(bus)
+        with b.sw.enabled(0b101):
+            b.init()
+            action = sys.argv[3]
+            if action == "eeprom":
+                b.eeprom_update()
             with b.flash_upd():
-                 # b.report()
+                b.report()
                 if action == "read":
                     b.dump(sys.argv[4])
                 elif action == "write":
                     with open(sys.argv[4], "rb") as fil:
                         b.flash.flash(0, fil.read())
-        b.creload()
+            b.creload()

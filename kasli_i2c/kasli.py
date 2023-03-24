@@ -1,14 +1,14 @@
 from contextlib import contextmanager
 import logging
 
-from sinara import Sinara
-from i2c_bitbang import I2C, I2CNACK
-import chips
+from kasli_i2c.sinara import Sinara
+from kasli_i2c.i2c_bitbang import I2C, I2CNACK
+from kasli_i2c.chips import ScanI2C
 
 logger = logging.getLogger(__name__)
 
 
-class Kasli(I2C, chips.ScanI2C):
+class Kasli(I2C, ScanI2C):
     ports = {
         "ROOT": [],
         "EEM0": [(0x70, 7)],

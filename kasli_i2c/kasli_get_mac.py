@@ -1,7 +1,7 @@
 import logging
 
-from kasli import Kasli, I2CNACK
-from chips import EEPROM
+from kasli_i2c.kasli import Kasli, I2CNACK
+from kasli_i2c.chips import EEPROM
 
 logger = logging.getLogger(__name__)
 

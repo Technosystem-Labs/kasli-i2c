@@ -5,7 +5,7 @@ from collections import OrderedDict
 import socket
 # OrderedDict = dict
 
-from sinara import Sinara
+from kasli_i2c.sinara import Sinara
 
 logger = logging.getLogger(__name__)
 
@@ -76,8 +76,8 @@ def flash(description, ss, ft_serial=None):
     url = "ftdi://ftdi:4232h{}/2".format(
             ":" + ft_serial if ft_serial is not None else "")
 
-    from kasli import Kasli
-    from chips import EEPROM, PCA9548
+    from kasli_i2c.kasli import Kasli
+    from kasli_i2c.chips import EEPROM, PCA9548
 
     with Kasli().configure(url) as bus:
         # bus.reset_switch()
@@ -201,7 +201,7 @@ if __name__ == "__main__":
         sock.connect((args.printer, 9100))
         sock.sendall("\n".join(labels).encode())
     else:
-        from label import render_zpl
+        from kasli_i2c.label import render_zpl
         for s in ss:
             open("labels/{}.png".format(s[0].eui48_fmt), "wb").write(
                     render_zpl(get_sinara_label(s[0])))
